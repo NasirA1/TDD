@@ -585,6 +585,7 @@ TEST(ChatterPresenter, ReceivedMessageIAppendedToChatHistory)
 	//we expect that the message should appear in view2's chat history
 	//when it is received
 	EXPECT_CALL(view2, AppendToChatHistory("hi from channel1!\n"));
+	
 	channel1.SendMessage("hi from channel1!");
 
 	//busy wait until the message is received 
