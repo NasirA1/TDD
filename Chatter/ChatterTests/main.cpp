@@ -336,7 +336,7 @@ END_EVENT_TABLE();
 
 
 
-#define TESTING
+//#define TESTING
 
 #ifndef TESTING
 
@@ -344,9 +344,19 @@ struct MywxApp : public wxApp
 {
 	bool OnInit() override
 	{
-		//Model
-		channel_ = make_unique<UdpChatChannel>("127.0.0.1:2000", "127.0.0.1:2001");
+		//TODO Use program options, test first and validate!
+		if(wxApp::argc < 3)
+		{
+			cerr << "Usage: chatter my_ip:port peer_ip:port" << endl;
+			return false;
+		}
 
+		my_endpoint_ = wxApp::argv[1];
+		peer_endpoint_ = wxApp::argv[2];
+
+		//Model
+		channel_ = make_unique<UdpChatChannel>(my_endpoint_, peer_endpoint_);
+		
 		//Presenter
 		presenter_ = make_unique<ChatterPresenter>(*channel_);
 
@@ -360,6 +370,8 @@ struct MywxApp : public wxApp
 
 
 private:
+	string my_endpoint_;
+	string peer_endpoint_;
 	unique_ptr<UdpChatChannel> channel_;
 	ChatterView* view_;
 	unique_ptr<ChatterPresenter> presenter_;
@@ -367,6 +379,7 @@ private:
 
 DECLARE_APP(MywxApp)
 IMPLEMENT_APP(MywxApp)
+
 #endif
 
 
@@ -375,7 +388,7 @@ IMPLEMENT_APP(MywxApp)
 /////////////////////////////////////////// TEST CODE //////////////////////////////////////////////
 
 
-//#ifdef TESTING
+#ifdef TESTING
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
