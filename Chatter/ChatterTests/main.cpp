@@ -38,12 +38,18 @@ struct ChannelCallbackHandler
 
 struct ChatChannel
 {
+	ChatChannel() : callbackHandler_(nullptr){}
+	void SetCallbackHandler(ChannelCallbackHandler* callbackHandler) { callbackHandler_ = callbackHandler; }
+
 	virtual bool Initialise() = 0;
 	virtual bool IsOpen() const = 0;
 	virtual void SendMessage(const std::string& message) = 0;
 	virtual bool ReceiveMessage(std::string& message) = 0;
 	virtual std::string ToString() const = 0;
 	virtual ~ChatChannel() {}
+
+protected:
+	ChannelCallbackHandler* callbackHandler_;	
 };
 
 
@@ -72,7 +78,6 @@ public:
 		, worker_(nullptr)
 		, received_message_count_(0lu)
 		, stopWorker_(false)
-		, callbackHandler_(nullptr)
 	{
 		ExtractIpAndPort(my_endpoint, my_ip_, my_port_);
 		ExtractIpAndPort(peer_endpoint, peer_ip_, peer_port_);
@@ -93,7 +98,6 @@ public:
 	string GetPeerIpAddress() const { return peer_ip_; }
 	unsigned short GetPeerPort() const { return peer_port_; }
 	size_t ReceivedMessageCount() const { return received_message_count_; }
-	void SetCallbackHandler(ChannelCallbackHandler* callbackHandler) { callbackHandler_ = callbackHandler; }
 
 
 	string ToString() const override
@@ -179,18 +183,18 @@ private:
 	unique_ptr<thread> worker_;
 	size_t received_message_count_;
 	bool stopWorker_;
-	ChannelCallbackHandler* callbackHandler_;
 };
 
 
 
-class ChatterPresenter
+class ChatterPresenter : public ChannelCallbackHandler
 {
 public:
 	ChatterPresenter(ChatChannel& channel)
 		: channel_(channel)
 		, view_(nullptr)
 	{
+		channel_.SetCallbackHandler(this);
 	}
 
 	void SetView(ChatterView* view)
@@ -212,11 +216,16 @@ public:
 		return view_->GetMessageLength() > 0;
 	}
 
-	void Run()
+	void Initialise()
 	{
 		channel_.Initialise();
 		view_->Show();
 		view_->SetStatus(channel_.ToString());
+	}
+
+	void OnMessageReceived(const string& message) override
+	{
+		view_->AppendToChatHistory(message + "\n");
 	}
 
 
@@ -265,32 +274,32 @@ public:
 	}
 
 
-	virtual void Show() override
+	void Show() override
 	{
 		wxFrame::Show(true);
 	}
 
-	virtual void SetStatus(const std::string& text) override
+	void SetStatus(const std::string& text) override
 	{
 		SetStatusText(text);
 	}
 
-	virtual std::string GetMessage() const override
+	std::string GetMessage() const override
 	{
 		return txt_message_->GetValue().ToStdString();
 	}
 
-	virtual void AppendToChatHistory(const std::string& text) override
+	void AppendToChatHistory(const std::string& text) override
 	{
 		txt_chat_history_->AppendText(text.c_str());
 	}
 
-	virtual void SetMessage(const std::string& message) override
+	void SetMessage(const std::string& message) override
 	{
 		txt_message_->SetValue(message.c_str());
 	}
 
-	virtual size_t GetMessageLength() const override
+	size_t GetMessageLength() const override
 	{
 		return txt_message_->GetLineLength(0);
 	}
@@ -327,13 +336,13 @@ END_EVENT_TABLE();
 
 
 
-//#define TESTING
+#define TESTING
 
 #ifndef TESTING
 
 struct MywxApp : public wxApp
 {
-	virtual bool OnInit()
+	bool OnInit() override
 	{
 		//Model
 		channel_ = make_unique<UdpChatChannel>("127.0.0.1:2000", "127.0.0.1:2001");
@@ -345,7 +354,7 @@ struct MywxApp : public wxApp
 		view_ = new wxChatterView(*presenter_);
 		SetTopWindow(dynamic_cast<wxFrame*>(view_));
 
-		presenter_->Run();
+		presenter_->Initialise();
 		return true;
 	}
 
@@ -467,26 +476,37 @@ TEST(UdpChatChannel, OnMessageReceivedIsCalledWhenMessageIsReceived)
 }
 
 
-TEST(ChatterPresenter, Run_ChannelIsInitialised)
+TEST(ChatterPresenter, Initialise_ChannelIsInitialised)
 {
 	UdpChatChannel channel("127.0.0.1:2000", "127.0.0.1:2001");
 	ChatterPresenter presenter(channel);
 	NiceMock<MockChatterView> view(presenter);
 
-	presenter.Run();
+	presenter.Initialise();
 
 	EXPECT_TRUE(channel.IsOpen());
 }
 
 
-TEST(ChatterPresenter, Run_ChatterViewShown)
+TEST(ChatterPresenter, Initialise_ChatterViewShown)
 {
 	UdpChatChannel channel("127.0.0.1:2000", "127.0.0.1:2001");
 	ChatterPresenter presenter(channel);
 	NiceMock<MockChatterView> view(presenter);
 
 	EXPECT_CALL(view, Show());
-	presenter.Run();
+	presenter.Initialise();
+}
+
+
+TEST(ChatterPresenter, Initialise_EndpointsShownInStatusBar)
+{
+	UdpChatChannel channel("127.0.0.1:2000", "127.0.0.1:2001");
+	ChatterPresenter presenter(channel);
+	NiceMock<MockChatterView> view(presenter);
+
+	EXPECT_CALL(view, SetStatus("127.0.0.1:2000 <---> 127.0.0.1:2001"));
+	presenter.Initialise();
 }
 
 
@@ -514,17 +534,6 @@ TEST(ChatterPresenter, CanSend_ReturnsTrueWhenMessageNotEmpty)
 }
 
 
-TEST(ChatterPresenter, Run_EndpointsShownInStatusBar)
-{
-	UdpChatChannel channel("127.0.0.1:2000", "127.0.0.1:2001");
-	ChatterPresenter presenter(channel);
-	NiceMock<MockChatterView> view(presenter);
-
-	EXPECT_CALL(view, SetStatus("127.0.0.1:2000 <---> 127.0.0.1:2001"));
-	presenter.Run();
-}
-
-
 TEST(ChatterPresenter, OnSendMessage_MessageIsAppendedToChatHistory)
 {
 	UdpChatChannel channel("127.0.0.1:2000", "127.0.0.1:2001");
@@ -538,7 +547,7 @@ TEST(ChatterPresenter, OnSendMessage_MessageIsAppendedToChatHistory)
 	EXPECT_CALL(view, AppendToChatHistory("hi, how are you?\n"));
 	EXPECT_CALL(view, SetMessage(""));
 
-	presenter.Run();
+	presenter.Initialise();
 	presenter.OnSendCommand();
 }
 
@@ -557,9 +566,35 @@ TEST(ChatterPresenter, OnSendMessage_MessageIsSent)
 	EXPECT_CALL(view, SetMessage(""));
 	EXPECT_CALL(channel, SendMessage("hi, how are you?\n"));
 
-	presenter.Run();
+	presenter.Initialise();
 	presenter.OnSendCommand();
 }
+
+
+TEST(ChatterPresenter, ReceivedMessageIAppendedToChatHistory)
+{
+	UdpChatChannel channel1("127.0.0.1:2000", "127.0.0.1:2001");
+	UdpChatChannel channel2("127.0.0.1:2001", "127.0.0.1:2000");	
+	ChatterPresenter presenter2(channel2);
+	NiceMock<MockChatterView> view2(presenter2);
+
+	channel1.Initialise();
+	presenter2.Initialise();
+
+	//We send message from channel1 to channel2 through the presenter
+	//we expect that the message should appear in view2's chat history
+	//when it is received
+	EXPECT_CALL(view2, AppendToChatHistory("hi from channel1!\n"));
+	channel1.SendMessage("hi from channel1!");
+
+	//busy wait until the message is received 
+	while (!channel2.ReceivedMessageCount())
+	{
+		using namespace chrono;
+		this_thread::sleep_for(100ms);
+	}
+}
+
 
 
 int main(int argc, char* argv[])
