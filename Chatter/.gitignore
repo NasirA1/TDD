@@ -1,0 +1,7 @@
+Debug/*
+.vs/*
+ChatterTests/Debug/*
+ChatterTests/x64/*
+Chatter/Chatter.vcxproj.user
+chatter_app
+chatter_tests
