@@ -3,5 +3,6 @@ Debug/*
 ChatterTests/Debug/*
 ChatterTests/x64/*
 Chatter/Chatter.vcxproj.user
+Chatter/Debug/vc141.pdb
 chatter_app
 chatter_tests

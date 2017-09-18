@@ -23,13 +23,13 @@ class wxChatterView : public ChatterView, private wxFrame
 {
 public:
 	wxChatterView(ChatterPresenter& presenter)
-		: wxFrame(nullptr, -1, "Chatter", wxDefaultPosition, wxDefaultSize)
+		: wxFrame(nullptr, wxID_ANY, "Chatter", wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE | wxCLIP_CHILDREN)
 		, presenter_(presenter)
 		, szr_content_(new wxBoxSizer(wxVERTICAL))
 		, szr_bottom_(new wxBoxSizer(wxHORIZONTAL))
 		, txt_chat_history_(new wxTextCtrl(this, TEXT_CHATHISTORY, "", wxDefaultPosition, wxSize(400, 200)
 			, wxTE_MULTILINE | wxTE_RICH, wxDefaultValidator, wxTextCtrlNameStr))
-		, txt_message_(new wxTextCtrl(this, TEXT_MESSAGE, "", wxDefaultPosition, wxDefaultSize))
+		, txt_message_(new wxTextCtrl(this, TEXT_MESSAGE, "", wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER))
 		, btn_send_(new wxButton(this, BUTTON_SEND, "Send"))
 	{
 		CreateStatusBar();
@@ -44,6 +44,8 @@ public:
 		txt_chat_history_->SetEditable(false);
 		txt_chat_history_->SetBackgroundColour(wxColor(200, 200, 200));
 		txt_message_->SetFocus();
+
+		btn_send_->SetDefault();
 
 		presenter_.SetView(this);
 	}
@@ -133,6 +135,7 @@ struct MywxApp : public wxApp
 		//View
 		view_ = new wxChatterView(*presenter_);
 		SetTopWindow(dynamic_cast<wxFrame*>(view_));
+		SetExitOnFrameDelete(true);
 
 		presenter_->Initialise();
 		return true;
