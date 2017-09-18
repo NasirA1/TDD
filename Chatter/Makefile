@@ -27,8 +27,8 @@ coverage: chatter_tests
 	sleep 1s
 	lcov -t "result" -o coverage/ex_test.info -c -d .
 	genhtml  -o ./coverage/res ./coverage/ex_test.info
-		
+
 
 clean:
-	rm -rf chatter_tests chatter_app coverage/*
+	rm -rf chatter_tests chatter_app coverage/* *.gcno *.gcda
 
