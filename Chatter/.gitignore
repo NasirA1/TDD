@@ -1,5 +1,8 @@
 Debug/*
 .vs/*
+*.gcno
+*.gcda
+coverage/*
 ChatterTests/Debug/*
 ChatterTests/x64/*
 Chatter/Chatter.vcxproj.user
